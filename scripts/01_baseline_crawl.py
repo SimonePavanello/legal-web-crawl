@@ -1,47 +1,63 @@
 import sys
 import os
 import shutil
-import sqlite3
 from pathlib import Path
 
-# Configurazione Percorsi OpenWPM
-OPENWPM_ROOT = "/home/simone/Workspace/OpenWPM"
-if OPENWPM_ROOT not in sys.path:
-    sys.path.append(OPENWPM_ROOT)
+# --- LOGICA DI RILEVAMENTO PERCORSI (PORTABILE) ---
+# Identifica la cartella dove si trova questo script (legal-web-crawl/scripts)
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+# La radice del progetto è un livello sopra (legal-web-crawl/)
+PROJECT_ROOT = SCRIPT_DIR.parent
+
+# OpenWPM ora è DENTRO la tua repo (legal-web-crawl/OpenWPM)
+OPENWPM_PATH = PROJECT_ROOT / "OpenWPM"
+
+# Aggiunge OpenWPM al percorso di ricerca di Python
+if str(OPENWPM_PATH) not in sys.path:
+    sys.path.append(str(OPENWPM_PATH))
+
+# Definisce la cartella di output (legal-web-crawl/output/baseline)
+DATA_DIR = PROJECT_ROOT / "output" / "baseline"
+# --------------------------------------------------
 
 try:
     from openwpm.config import BrowserParams, ManagerParams
     from openwpm.command_sequence import CommandSequence
     from openwpm.task_manager import TaskManager
     from openwpm.storage.sql_provider import SQLiteStorageProvider
-except ImportError as e:
-    print(f"[!] Errore import: {e}. Controlla PYTHONPATH.")
+    print(f"[*] OpenWPM caricato correttamente dalla cartella interna!")
+except ImportError:
+    print(f"[!] ERRORE: Non trovo OpenWPM in {OPENWPM_PATH}")
+    print("[?] Hai rimosso la cartella OpenWPM o hai cambiato struttura?")
     sys.exit(1)
 
-# Impostazione binario Firefox e estensione
-os.environ["FIREFOX_BINARY"] = os.path.join(OPENWPM_ROOT, "firefox-bin/firefox")
-EXTENSION_PATH = os.path.join(OPENWPM_ROOT, "openwpm.xpi")
+# Configurazione binari interni alla repo
+os.environ["FIREFOX_BINARY"] = str(OPENWPM_PATH / "firefox-bin" / "firefox")
+EXTENSION_PATH = OPENWPM_PATH / "openwpm.xpi"
 
 def main():
     # 1. Setup Directory specifica per BASELINE
-    data_dir = Path("/home/simone/Workspace/legal-web-crawl/output/baseline").resolve()
-    if data_dir.exists():
-        shutil.rmtree(data_dir)
-    data_dir.mkdir(parents=True, exist_ok=True)
+    if DATA_DIR.exists():
+        shutil.rmtree(DATA_DIR)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     
-    db_path = data_dir / "baseline.sqlite"
+    db_path = DATA_DIR / "baseline.sqlite"
     storage_provider = SQLiteStorageProvider(str(db_path))
     
     # 2. Configurazione Manager
     manager_params = ManagerParams(num_browsers=1)
-    manager_params.data_directory = data_dir
-    manager_params.log_path = data_dir / "openwpm.log"
+    manager_params.data_directory = DATA_DIR
+    manager_params.log_path = DATA_DIR / "openwpm.log"
     
     # 3. Configurazione Browser (Strumentazione Totale)
     browser_params = [BrowserParams(display_mode="headless")]
     
-    if os.path.exists(EXTENSION_PATH):
-        browser_params[0].extension_paths = [EXTENSION_PATH]
+    if EXTENSION_PATH.exists():
+        browser_params[0].extension_paths = [str(EXTENSION_PATH)]
+        print(f"[*] Estensione trovata e caricata.")
+    else:
+        print(f"[!] ATTENZIONE: Estensione non trovata in {EXTENSION_PATH}")
     
     browser_params[0].http_instrument = True
     browser_params[0].cookie_instrument = True
@@ -49,8 +65,6 @@ def main():
     browser_params[0].navigation_instrument = True
     browser_params[0].tp_cookies = "always"
     browser_params[0].bot_mitigation = True
-
-       
 
     sites = [
         "https://gtld-servers.net", "https://microsoft.com",
@@ -61,8 +75,9 @@ def main():
     ]
     
     print(f"\n{'='*60}")
+    print(f"[*] PROGETTO: {PROJECT_ROOT.name}")
     print(f"[*] FASE 1: AVVIO BASELINE (NESSUNA SCELTA)")
-    print(f"[*] Obiettivo: Rilevare violazioni V1 e V2")
+    print(f"[*] Destinazione Dati: {DATA_DIR}")
     print(f"[*] Database: {db_path}")
     print(f"{'='*60}\n")
 
@@ -70,27 +85,28 @@ def main():
 
     try:
         for i, url in enumerate(sites, 1):
-            print(f"[{i}/{len(sites)}] Analisi: {url}", flush=True)
+            print(f"[{i}/{len(sites)}] Analisi pre-consenso: {url}", flush=True)
             try:
                 command_sequence = CommandSequence(url, reset=True)
                 
-                # Carica pagina e attendi 30 sec per tracciamento silente
+                # Carica pagina e attendi 30 sec per tracciamento silente (V1 e V2)
                 command_sequence.get(sleep=30) 
                 
                 # Screenshot (Richiesto dal docente)
-                site_id = url.split("//")[-1].replace(".", "_")
+                # Pulisce l'URL per usarlo come nome file
+                site_id = url.split("//")[-1].replace(".", "_").replace("/", "")
                 command_sequence.save_screenshot(f"screenshot_{site_id}")
                 
                 manager.execute_command_sequence(command_sequence)
-                print(f"         [✓] Dati e Screenshot salvati", flush=True)
+                print(f"         [✓] Successo: Dati e Screenshot salvati", flush=True)
             except Exception as e:
                 print(f"         [✗] Errore su {url}: {e}", flush=True)
                 
     except KeyboardInterrupt:
-        print("\n[!] Interrotto.")
+        print("\n[!] Interrotto manualmente.")
     finally:
         manager.close()
-        print("\n[*] Baseline terminata.")
+        print(f"\n[*] Baseline terminata. I dati sono pronti in: {DATA_DIR}")
 
 if __name__ == "__main__":
     main()
