@@ -11,7 +11,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 
 # OpenWPM ora è DENTRO la tua repo (legal-web-crawl/OpenWPM)
-OPENWPM_PATH = PROJECT_ROOT / "OpenWPM"
+OPENWPM_PATH = "/Users/pava/Documents/Workspace/Repos/OpenWPM"  # Cambia questo percorso se hai spostato la cartella OpenWPM
 
 # Aggiunge OpenWPM al percorso di ricerca di Python
 if str(OPENWPM_PATH) not in sys.path:
@@ -33,8 +33,26 @@ except ImportError:
     sys.exit(1)
 
 # Configurazione binari interni alla repo
-os.environ["FIREFOX_BINARY"] = str(OPENWPM_PATH / "firefox-bin" / "firefox")
-EXTENSION_PATH = OPENWPM_PATH / "openwpm.xpi"
+
+FIREFOX_DEV_PATH = "/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox"
+if os.path.exists(FIREFOX_DEV_PATH):
+    os.environ["FIREFOX_BINARY"] = FIREFOX_DEV_PATH
+    print(f"[✓] Firefox Developer Edition trovato")
+elif os.path.exists("/Applications/Firefox.app/Contents/MacOS/firefox"):
+    os.environ["FIREFOX_BINARY"] = "/Applications/Firefox.app/Contents/MacOS/firefox"
+    print(f"[✓] Firefox normale trovato")
+elif os.path.exists(OPENWPM_PATH / "firefox-bin" / "firefox"):
+    os.environ["FIREFOX_BINARY"] = str(OPENWPM_PATH / "firefox-bin" / "firefox")
+    print(f"[✓] Firefox binario interno trovato")
+else:
+    print(f"[!] ERRORE: Non trovo Firefox in nessuno dei percorsi standard.")
+    print("[?] Hai installato Firefox Developer Edition o Firefox normale?")
+    print("[?] Hai lasciato il binario di Firefox dentro la cartella OpenWPM?")
+    sys.exit(1)
+
+
+#EXTENSION_PATH = OPENWPM_PATH / "openwpm.xpi"
+EXTENSION_PATH = Path("/Users/pava/Documents/Workspace/Repos/OpenWPM/Extension") / "openwpm.xpi"
 
 def main():
     # 1. Setup Directory specifica per BASELINE
