@@ -48,13 +48,15 @@ def main():
                 command_sequence = CommandSequence(url, reset=True)
                 
                 # Carica pagina e attendi 45 sec per tracciamento silente
-                command_sequence.get(sleep=45) 
+                command_sequence.get(sleep=30) 
                 
                 # Screenshot
                 site_id = url.split("//")[-1].replace(".", "_").replace("/", "")
                 command_sequence.save_screenshot(f"screenshot_{site_id}")
                 
                 manager.execute_command_sequence(command_sequence)
+
+                
                 print(f"         [✓] Successo: Dati e Screenshot salvati", flush=True)
             except Exception as e:
                 print(f"         [✗] Errore su {url}: {e}", flush=True)

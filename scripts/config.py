@@ -117,27 +117,25 @@ def load_sites_from_file(filepath=None):
 SITES = load_sites_from_file()
 
 # --- CONFIGURAZIONE BROWSER BASE ---
-def get_browser_params(display_mode="headless", use_extension=True):
-    """
-    Crea configurazione browser standard
+def get_browser_params(display_mode="headless", use_extension=True, num_browsers=1):
+    browser_params = []
     
-    Args:
-        display_mode: "headless", "native", o "xvfb"
-        use_extension: Se True carica l'estensione OpenWPM
-    
-    Returns:
-        Lista con BrowserParams configurato
-    """
-    browser_params = [BrowserParams(display_mode=display_mode)]
-    
-    if use_extension and EXTENSION_PATH:
-        browser_params[0].extension_paths = [str(EXTENSION_PATH)]
-    
-    browser_params[0].http_instrument = True
-    browser_params[0].cookie_instrument = True
-    browser_params[0].js_instrument = True
-    browser_params[0].navigation_instrument = True
-    browser_params[0].tp_cookies = "always"
-    browser_params[0].bot_mitigation = True
+    for i in range(num_browsers):
+        # Crea una nuova istanza per ogni browser
+        bp = BrowserParams(display_mode=display_mode)
+        
+        # Configurazione comune a tutte le istanze
+        bp.http_instrument = True
+        bp.cookie_instrument = True
+        bp.js_instrument = True
+        bp.navigation_instrument = True
+        bp.tp_cookies = "always"
+        bp.bot_mitigation = True
+        
+        if use_extension and EXTENSION_PATH:
+            bp.extension_paths = [str(EXTENSION_PATH)]
+            
+        # Aggiunge l'istanza alla lista
+        browser_params.append(bp)
     
     return browser_params
