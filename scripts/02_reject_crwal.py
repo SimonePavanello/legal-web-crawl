@@ -1,37 +1,22 @@
-import sys
-import os
 import shutil
 import time
 from pathlib import Path
 
-# --- LOGICA DI RILEVAMENTO PERCORSI (PORTABILE) ---
-SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_DIR.parent
-OPENWPM_PATH = PROJECT_ROOT / "OpenWPM"
-
-if str(OPENWPM_PATH) not in sys.path:
-    sys.path.append(str(OPENWPM_PATH))
+# Importa dalla configurazione comune
+from config import (
+    PROJECT_ROOT,
+    load_sites_from_file,
+    ManagerParams,
+    CommandSequence,
+    TaskManager,
+    SQLiteStorageProvider,
+    GetCommand,
+    BaseCommand,
+    get_browser_params,
+    By
+)
 
 DATA_DIR = PROJECT_ROOT / "output" / "rejected"
-# --------------------------------------------------
-
-try:
-    from openwpm.config import BrowserParams, ManagerParams
-    from openwpm.command_sequence import CommandSequence
-    from openwpm.task_manager import TaskManager
-    from openwpm.storage.sql_provider import SQLiteStorageProvider
-    from openwpm.commands.browser_commands import GetCommand
-    from openwpm.commands.types import BaseCommand
-    from selenium.webdriver.common.by import By
-    print(f"[✓] OpenWPM caricato correttamente da {OPENWPM_PATH}")
-except ImportError as e:
-    print(f"[!] ERRORE: {e}")
-    sys.exit(1)
-
-# Configurazione binari
-os.environ["FIREFOX_BINARY"] = str(OPENWPM_PATH / "firefox-bin" / "firefox")
-EXTENSION_PATH = OPENWPM_PATH / "openwpm.xpi"
-
 
 def click_reject_button(webdriver):
     """
@@ -120,13 +105,7 @@ class CustomFunctionCommand(BaseCommand):
     def __repr__(self):
         return f"CustomFunctionCommand({self.function_handle.__name__})"
     
-    def execute(
-        self,
-        webdriver,
-        browser_params,
-        manager_params,
-        extension_socket,
-    ):
+    def execute(self, webdriver, browser_params, manager_params, extension_socket):
         if self.args:
             self.function_handle(webdriver, *self.args)
         else:
@@ -134,6 +113,7 @@ class CustomFunctionCommand(BaseCommand):
 
 
 def main():
+    # 1. Setup Directory specifica per REJECT
     if DATA_DIR.exists():
         shutil.rmtree(DATA_DIR)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -145,39 +125,29 @@ def main():
     db_path = DATA_DIR / "rejected.sqlite"
     storage_provider = SQLiteStorageProvider(str(db_path))
     
+    # 2. Configurazione Manager
     manager_params = ManagerParams(num_browsers=1)
     manager_params.data_directory = DATA_DIR
     manager_params.log_path = DATA_DIR / "openwpm.log"
     
-    browser_params = [BrowserParams(display_mode="native")]
-    if EXTENSION_PATH.exists():
-        browser_params[0].extension_paths = [str(EXTENSION_PATH)]
+    # 3. Configurazione Browser usando la funzione helper di config.py
+    browser_params = get_browser_params(display_mode="headless", use_extension=True)
+    
+    # Carica siti da file
+    SITES = load_sites_from_file()
 
-    # Strumentazione
-    browser_params[0].http_instrument = True
-    browser_params[0].cookie_instrument = True
-    browser_params[0].js_instrument = True
-    browser_params[0].navigation_instrument = True
-
-    sites = [
-        "https://microsoft.com", 
-        "https://facebook.com", 
-        "https://cloudflare.com", 
-        "https://mail.ru", 
-        "https://youtube.com", 
-        "https://apple.com", 
-        "https://instagram.com"
-    ]
-
-    print(f"\n[*] FASE 2: REJECT CRAWL (Interazione Automatica)")
-    print(f"[*] Output: {DATA_DIR}")
-    print(f"[*] Database: {db_path}\n")
+    print(f"\n{'='*60}")
+    print(f"[*] PROGETTO: {PROJECT_ROOT.name}")
+    print(f"[*] FASE 2: REJECT CRAWL (Click su Rifiuta)")
+    print(f"[*] Destinazione Dati: {DATA_DIR}")
+    print(f"[*] Database: {db_path}")
+    print(f"{'='*60}\n")
     
     manager = TaskManager(manager_params, browser_params, storage_provider, None)
 
     try:
-        for i, url in enumerate(sites, 1):
-            print(f"[{i}/{len(sites)}] Navigazione + Rifiuto: {url}")
+        for i, url in enumerate(SITES, 1):
+            print(f"[{i}/{len(SITES)}] Navigazione + Rifiuto: {url}", flush=True)
             try:
                 command_sequence = CommandSequence(url, reset=True)
                 
@@ -198,18 +168,16 @@ def main():
                 )
                 
                 manager.execute_command_sequence(command_sequence)
-                print(f"         [✓] Completato\n")
+                print(f"         [✓] Successo: Dati e Screenshot salvati", flush=True)
                 
             except Exception as e:
-                print(f"         [✗] Errore su {url}: {e}\n")
-                import traceback
-                traceback.print_exc()
+                print(f"         [✗] Errore su {url}: {e}", flush=True)
                 
     except KeyboardInterrupt:
-        print("\n[!] Interrotto dall'utente.")
+        print("\n[!] Interrotto manualmente.")
     finally:
         manager.close()
-        print(f"\n[*] Crawl completato. Dati salvati in: {db_path}")
+        print(f"\n[*] Reject crawl terminata. I dati sono pronti in: {DATA_DIR}")
 
 
 if __name__ == "__main__":
