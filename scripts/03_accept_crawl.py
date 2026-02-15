@@ -13,35 +13,41 @@ from config import (
     GetCommand,
     BaseCommand,
     get_browser_params,
-    By
+    By,
+    CustomFunctionCommand,
+    heartbeat_wait,
+    save_manual_screenshot,
+    get_screenshot_path,
 )
 
+# Cambiata la directory di output in "accepted"
 DATA_DIR = PROJECT_ROOT / "output" / "accepted"
 
 def click_accept_button(webdriver):
     """
-    Funzione custom da eseguire nel browser per cliccare il pulsante accept.
+    Funzione custom da eseguire nel browser per cliccare il pulsante di consenso (Accept).
     """
     try:
-        print("         [*] Ricerca pulsante accept...")
-        time.sleep(3)
+        print("         [*] Ricerca pulsante accetta...")
+        time.sleep(3)  # Aspetta che il banner appaia
         
-        # Lista di selettori XPath per trovare pulsanti accept
+        # Lista di selettori XPath aggiornati per trovare pulsanti di consenso
         selectors = [
             # Testo in italiano/inglese (case-insensitive)
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta')]",
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accept')]",
+            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'acconsento')]",
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'agree')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accept all')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta tutti')]",
-            "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accept')]",
+            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'ho capito')]",
+            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'autorizzo')]",
+            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'ok')]",
             "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta')]",
-            "//div[@role='button'][contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accept')]",
+            "//div[@role='button'][contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta')]",
             
-            # ID e classi comuni
+            # ID e classi comuni per l'accettazione (spesso differiscono dal reject)
             "//*[@id='onetrust-accept-btn-handler']",
             "//*[contains(@class, 'accept-all')]",
-            "//*[contains(@class, 'agree-button')]",
+            "//*[contains(@class, 'consent-all')]",
             "//*[@data-action='accept']",
             "//*[@data-testid='accept-button']",
             "//*[contains(@aria-label, 'Accept')]",
@@ -60,12 +66,12 @@ def click_accept_button(webdriver):
                             
                             try:
                                 element.click()
-                                print(f"         [✓] Pulsante accept cliccato!")
+                                print(f"         [✓] Pulsante accetta cliccato!")
                                 time.sleep(2)
                                 return
                             except:
                                 webdriver.execute_script("arguments[0].click();", element)
-                                print(f"         [✓] Pulsante accept cliccato (JS)!")
+                                print(f"         [✓] Pulsante accetta cliccato (JS)!")
                                 time.sleep(2)
                                 return
                     except:
@@ -73,39 +79,13 @@ def click_accept_button(webdriver):
             except:
                 continue
         
-        print("         [!] Nessun pulsante accept trovato")
+        print("         [!] Nessun pulsante accetta trovato")
         
     except Exception as e:
         print(f"         [!] Errore durante il click: {e}")
 
-
-def take_screenshot(webdriver, screenshot_path):
-    """Salva uno screenshot manualmente."""
-    try:
-        webdriver.save_screenshot(screenshot_path)
-        print(f"         [✓] Screenshot salvato: {screenshot_path}")
-    except Exception as e:
-        print(f"         [!] Errore screenshot: {e}")
-
-
-class CustomFunctionCommand(BaseCommand):
-    """Comando custom per eseguire una funzione Python nel contesto del browser."""
-    def __init__(self, function_handle, *args):
-        self.function_handle = function_handle
-        self.args = args
-    
-    def __repr__(self):
-        return f"CustomFunctionCommand({self.function_handle.__name__})"
-    
-    def execute(self, webdriver, browser_params, manager_params, extension_socket):
-        if self.args:
-            self.function_handle(webdriver, *self.args)
-        else:
-            self.function_handle(webdriver)
-
-
 def main():
-    # 1. Setup Directory specifica per ACCEPT
+    # 1. Setup Directory specifica per ACCEPTED
     if DATA_DIR.exists():
         shutil.rmtree(DATA_DIR)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -124,7 +104,6 @@ def main():
     # 3. Configurazione Browser
     browser_params = get_browser_params(display_mode="headless", use_extension=True)
     
-    # Carica siti da file
     SITES = load_sites_from_file()
 
     print(f"\n{'='*60}")
@@ -138,20 +117,23 @@ def main():
 
     try:
         for i, url in enumerate(SITES, 1):
-            print(f"[{i}/{len(SITES)}] Navigazione + Accetta: {url}", flush=True)
+            print(f"[{i}/{len(SITES)}] Navigazione + Accetto: {url}", flush=True)
             try:
-                command_sequence = CommandSequence(url, reset=True)
+                command_sequence = CommandSequence(url, reset=True, blocking=True)
                 
-                command_sequence.append_command(GetCommand(url=url, sleep=5))
-                command_sequence.append_command(CustomFunctionCommand(click_accept_button))
-                command_sequence.append_command(GetCommand(url=url, sleep=3))
+                # 1. Caricamento iniziale
+                command_sequence.append_command(GetCommand(url=url, sleep=10), timeout=120)
                 
-                site_id = url.split("//")[-1].replace(".", "_").replace("/", "")
-                screenshot_path = screenshots_dir / f"accepted_{site_id}.png"
-                command_sequence.append_command(
-                    CustomFunctionCommand(take_screenshot, str(screenshot_path))
-                )
+                # 2. Click su Accetta (Logica inversa rispetto al reject)
+                command_sequence.append_command(CustomFunctionCommand(click_accept_button), timeout=60)
                 
+                # 3. Osservazione post-consenso (heartbeat per evitare crash)
+                command_sequence.append_command(CustomFunctionCommand(heartbeat_wait, 60), timeout=120)
+                
+                # 4. Screenshot per verifica visiva
+                screenshot_path = get_screenshot_path(url, "accept", screenshots_dir)
+                command_sequence.append_command(CustomFunctionCommand(save_manual_screenshot, screenshot_path))
+     
                 manager.execute_command_sequence(command_sequence)
                 print(f"         [✓] Successo: Dati e Screenshot salvati", flush=True)
                 

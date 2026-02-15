@@ -13,7 +13,11 @@ from config import (
     GetCommand,
     BaseCommand,
     get_browser_params,
-    By
+    By,
+    CustomFunctionCommand,
+    heartbeat_wait,
+    save_manual_screenshot,
+    get_screenshot_path,
 )
 
 DATA_DIR = PROJECT_ROOT / "output" / "rejected"
@@ -84,44 +88,7 @@ def click_reject_button(webdriver):
     except Exception as e:
         print(f"         [!] Errore durante il click: {e}")
 
-def wait_post_reject(driver,  *args):
-    """Aspetta 60s senza far crashare il driver, mantenendo la connessione attiva"""
-    print("         [*] Inizio raccolta dati post-reject (60s)...")
-    for i in range(12): # 12 cicli da 5 secondi = 60 secondi
-        try:
-            # Una piccola operazione per dire a OpenWPM: "Sono vivo!"
-            _ = driver.current_url 
-            time.sleep(5)
-        except Exception:
-            break # Se il driver muore davvero, esce dal ciclo
-    
-def take_screenshot(webdriver, screenshot_path):
-    """
-    Salva uno screenshot manualmente.
-    """
-    try:
-        webdriver.save_screenshot(screenshot_path)
-        print(f"         [✓] Screenshot salvato: {screenshot_path}")
-    except Exception as e:
-        print(f"         [!] Errore screenshot: {e}")
 
-
-class CustomFunctionCommand(BaseCommand):
-    """
-    Comando custom per eseguire una funzione Python nel contesto del browser.
-    """
-    def __init__(self, function_handle, *args):
-        self.function_handle = function_handle
-        self.args = args
-    
-    def __repr__(self):
-        return f"CustomFunctionCommand({self.function_handle.__name__})"
-    
-    def execute(self, webdriver, browser_params, manager_params, extension_socket):
-        if self.args:
-            self.function_handle(webdriver, *self.args)
-        else:
-            self.function_handle(webdriver)
 
 
 def main():
@@ -170,15 +137,12 @@ def main():
                 command_sequence.append_command(CustomFunctionCommand(click_reject_button), timeout=60)
                 
                 # 3. Aspetta un po' dopo il click per raccogliere traffico
-                command_sequence.append_command(CustomFunctionCommand(wait_post_reject),timeout=120)
+                command_sequence.append_command(CustomFunctionCommand(heartbeat_wait),timeout=120)
                 
                 # 4. Screenshot manuale
-                site_id = url.split("//")[-1].replace(".", "_").replace("/", "")
-                screenshot_path = screenshots_dir / f"rejected_{site_id}.png"
-                command_sequence.append_command(
-                    CustomFunctionCommand(take_screenshot, str(screenshot_path))
-                )
-                
+                screenshot_path = get_screenshot_path(url, "reject", screenshots_dir)
+                command_sequence.append_command(CustomFunctionCommand(save_manual_screenshot, screenshot_path))
+     
                 manager.execute_command_sequence(command_sequence)
                 print(f"         [✓] Successo: Dati e Screenshot salvati", flush=True)
                 
