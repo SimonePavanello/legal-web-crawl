@@ -4,6 +4,28 @@ Configurazione comune per tutti gli script di crawling
 import sys
 import os
 from pathlib import Path
+import time
+import re
+
+
+def heartbeat_wait(driver, duration_sec=60):
+    """Funzione di attesa con heartbeat per evitare crash del driver"""
+    print(f"         [*] Osservazione in corso ({duration_sec}s)...")
+    steps = int(duration_sec / 5)
+    for _ in range(steps):
+        try:
+            _ = driver.current_url 
+            time.sleep(5)
+        except Exception:
+            break
+
+def save_manual_screenshot(webdriver, path):
+    """Gestore universale per gli screenshot"""
+    try:
+        webdriver.save_screenshot(str(path))
+        print(f"         [✓] Screenshot salvato in: {path}")
+    except Exception as e:
+        print(f"         [!] Errore screenshot: {e}")
 
 # --- PERCORSI ---
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -139,3 +161,34 @@ def get_browser_params(display_mode="headless", use_extension=True, num_browsers
         browser_params.append(bp)
     
     return browser_params
+
+class CustomFunctionCommand(BaseCommand):
+    """Comando universale per eseguire funzioni Python nel browser"""
+    def __init__(self, function_handle, *args):
+        self.function_handle = function_handle
+        self.args = args
+    
+    def __repr__(self):
+        return f"CustomFunctionCommand({self.function_handle.__name__})"
+    
+    def execute(self, webdriver, browser_params, manager_params, extension_socket):
+        if self.args:
+            self.function_handle(webdriver, *self.args)
+        else:
+            self.function_handle(webdriver)
+
+def get_screenshot_path(url, phase_name, directory):
+    """
+    Compone un path pulito: output/{fase}/screenshots/{fase}_{dominio}.png
+    """
+    # 1. Estrae il dominio e rimuove caratteri non sicuri
+    # Esempio: https://aws.amazon.com/it/ -> aws_amazon_com
+    clean_name = re.sub(r'https?://', '', url)
+    clean_name = re.sub(r'[^\w\s-]', '_', clean_name).strip('_')
+    clean_name = clean_name.split('_it')[0] # Opzionale: accorcia i path localizzati
+    
+    # 2. Crea il nome file: es. "rejected_aws_amazon_com.png"
+    filename = f"{phase_name}_{clean_name}.png"
+    
+    # 3. Restituisce il path completo
+    return Path(directory) / filename

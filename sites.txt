@@ -1,10 +1,8 @@
+https://aws.amazon.com/it/
 https://microsoft.com
 https://facebook.com
 https://cloudflare.com
-https://googleapis.com
 https://youtube.com
 https://apple.com
 https://instagram.com
 https://mail.ru
-https://aws.amazon.com/it/
-https://gtld-servers.net

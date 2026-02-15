@@ -1,7 +1,8 @@
 import shutil
+import time
 from pathlib import Path
 
-# Importa tutta la configurazione comune
+# Importa dalla configurazione comune
 from config import (
     PROJECT_ROOT,
     load_sites_from_file,  
@@ -9,17 +10,27 @@ from config import (
     CommandSequence,
     TaskManager,
     SQLiteStorageProvider,
-    get_browser_params
+    GetCommand,
+    BaseCommand,
+    get_browser_params,
+    CustomFunctionCommand,
+    heartbeat_wait,
+    save_manual_screenshot,
+    get_screenshot_path,
 )
 
+# Directory specifica per i dati della Baseline
 DATA_DIR = PROJECT_ROOT / "output" / "baseline"
 
 def main():
-    SITES = load_sites_from_file()
     # 1. Setup Directory specifica per BASELINE
     if DATA_DIR.exists():
         shutil.rmtree(DATA_DIR)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # Cartella per gli screenshot pre-consenso
+    screenshots_dir = DATA_DIR / "screenshots"
+    screenshots_dir.mkdir(exist_ok=True)
     
     db_path = DATA_DIR / "baseline.sqlite"
     storage_provider = SQLiteStorageProvider(str(db_path))
@@ -29,13 +40,16 @@ def main():
     manager_params.data_directory = DATA_DIR
     manager_params.log_path = DATA_DIR / "openwpm.log"
     
-    # 3. Configurazione Browser usando la funzione helper di config.py
+    # 3. Configurazione Browser (Headless + Estensione OpenWPM)
     browser_params = get_browser_params(display_mode="headless", use_extension=True)
     
+    # Carica la lista dei siti
+    SITES = load_sites_from_file()
+
     print(f"\n{'='*60}")
     print(f"[*] PROGETTO: {PROJECT_ROOT.name}")
     print(f"[*] FASE 1: BASELINE (NESSUNA SCELTA)")
-    print(f"[*] Destinazione Dati: {DATA_DIR}")
+    print(f"[*] Obiettivo: Rilevare violazioni V1 e V2")
     print(f"[*] Database: {db_path}")
     print(f"{'='*60}\n")
 
@@ -45,19 +59,23 @@ def main():
         for i, url in enumerate(SITES, 1):
             print(f"[{i}/{len(SITES)}] Analisi pre-consenso: {url}", flush=True)
             try:
-                command_sequence = CommandSequence(url, reset=True)
+                # blocking=True assicura che il database scriva tutto prima di passare al prossimo sito
+                command_sequence = CommandSequence(url, reset=True, blocking=True)
                 
-                # Carica pagina e attendi 45 sec per tracciamento silente
-                command_sequence.get(sleep=30) 
+                # 1. Carica la pagina e aspetta il caricamento iniziale
+                command_sequence.append_command(GetCommand(url=url, sleep=10), timeout=120)
                 
-                # Screenshot
-                site_id = url.split("//")[-1].replace(".", "_").replace("/", "")
-                command_sequence.save_screenshot(f"screenshot_{site_id}")
+                # 2. Osservazione passiva: fondamentale per catturare i tracker 'lazy-load'
+                # Usiamo la CustomFunction per evitare il crash del driver durante l'attesa
+                command_sequence.append_command(CustomFunctionCommand(heartbeat_wait), timeout=120)
+                
+                # 3. Screenshot dello stato iniziale (mostrerà il banner dei cookie intatto)
+                screenshot_path = get_screenshot_path(url, "baseline", screenshots_dir)
+                command_sequence.append_command(CustomFunctionCommand(save_manual_screenshot, screenshot_path))
                 
                 manager.execute_command_sequence(command_sequence)
-
+                print(f"         [✓] Successo: Dati pre-consenso raccolti", flush=True)
                 
-                print(f"         [✓] Successo: Dati e Screenshot salvati", flush=True)
             except Exception as e:
                 print(f"         [✗] Errore su {url}: {e}", flush=True)
                 
