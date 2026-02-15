@@ -31,6 +31,7 @@ def click_reject_button(webdriver):
             # Testo in italiano/inglese (case-insensitive)
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'rifiuta')]",
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reject')]",
+            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'declino')]",
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'decline')]",
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'only necessary')]",
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'solo necessari')]",
@@ -46,6 +47,7 @@ def click_reject_button(webdriver):
             "//*[@data-testid='reject-button']",
             "//*[contains(@aria-label, 'Reject')]",
             "//*[contains(@aria-label, 'Rifiuta')]",
+            "//*[contains(@aria-label, 'Continua senza accettare')]",
         ]
         
         for selector in selectors:
@@ -152,13 +154,13 @@ def main():
                 command_sequence = CommandSequence(url, reset=True)
                 
                 # 1. Naviga al sito e aspetta che carichi
-                command_sequence.append_command(GetCommand(url=url, sleep=5))
+                command_sequence.append_command(GetCommand(url=url, sleep=10))
                 
                 # 2. Esegui la funzione custom per cliccare reject
                 command_sequence.append_command(CustomFunctionCommand(click_reject_button))
                 
                 # 3. Aspetta un po' dopo il click per raccogliere traffico
-                command_sequence.append_command(GetCommand(url=url, sleep=3))
+                command_sequence.append_command(GetCommand(url=url, sleep=10))
                 
                 # 4. Screenshot manuale
                 site_id = url.split("//")[-1].replace(".", "_").replace("/", "")
