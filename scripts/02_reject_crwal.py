@@ -84,7 +84,17 @@ def click_reject_button(webdriver):
     except Exception as e:
         print(f"         [!] Errore durante il click: {e}")
 
-
+def wait_post_reject(driver,  *args):
+    """Aspetta 60s senza far crashare il driver, mantenendo la connessione attiva"""
+    print("         [*] Inizio raccolta dati post-reject (60s)...")
+    for i in range(12): # 12 cicli da 5 secondi = 60 secondi
+        try:
+            # Una piccola operazione per dire a OpenWPM: "Sono vivo!"
+            _ = driver.current_url 
+            time.sleep(5)
+        except Exception:
+            break # Se il driver muore davvero, esce dal ciclo
+    
 def take_screenshot(webdriver, screenshot_path):
     """
     Salva uno screenshot manualmente.
@@ -151,16 +161,16 @@ def main():
         for i, url in enumerate(SITES, 1):
             print(f"[{i}/{len(SITES)}] Navigazione + Rifiuto: {url}", flush=True)
             try:
-                command_sequence = CommandSequence(url, reset=True)
+                command_sequence = CommandSequence(url, reset=True, blocking=True)
                 
                 # 1. Naviga al sito e aspetta che carichi
-                command_sequence.append_command(GetCommand(url=url, sleep=10))
+                command_sequence.append_command(GetCommand(url=url, sleep=10), timeout=120)
                 
                 # 2. Esegui la funzione custom per cliccare reject
-                command_sequence.append_command(CustomFunctionCommand(click_reject_button))
+                command_sequence.append_command(CustomFunctionCommand(click_reject_button), timeout=60)
                 
                 # 3. Aspetta un po' dopo il click per raccogliere traffico
-                command_sequence.append_command(GetCommand(url=url, sleep=10))
+                command_sequence.append_command(CustomFunctionCommand(wait_post_reject),timeout=120)
                 
                 # 4. Screenshot manuale
                 site_id = url.split("//")[-1].replace(".", "_").replace("/", "")
