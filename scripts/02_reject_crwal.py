@@ -32,6 +32,22 @@ def click_reject_button(webdriver):
         
         # Lista di selettori XPath per trovare pulsanti reject
         selectors = [
+
+                    # --- NOVITÀ: Ricerca testuale universale (molto più forte) ---
+            "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'declino')]",
+            "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'decline optional cookies')]",
+            "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'rifiuta cookie facoltativi')]",
+            
+            # --- SPECIFICO PER FACEBOOK ---
+            # Facebook usa spesso l'attributo aria-label per i bottoni dei cookie
+            "//div[@role='button'][@aria-label='Decline optional cookies']",
+            "//div[@role='button'][@aria-label='Rifiuta cookie facoltativi']",
+            "//button[@data-cookiebanner='accept_only_essential_button']", # ID interno di Meta
+            
+            # --- SPECIFICO PER AWS ---
+            # Il bottone di AWS spesso ha ID dinamici, ma possiamo puntare al testo nel link
+            "//a[contains(., 'Declino')]",
+            "//button[contains(., 'Declino')]",
             # Testo in italiano/inglese (case-insensitive)
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'rifiuta')]",
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reject')]",
@@ -39,6 +55,8 @@ def click_reject_button(webdriver):
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'decline')]",
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'only necessary')]",
             "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'solo necessari')]",
+            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'Rifiuta cookies facoltativi')]",
+            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'Decline optional cookies')]",
             "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reject')]",
             "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'rifiuta')]",
             "//div[@role='button'][contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reject')]",
