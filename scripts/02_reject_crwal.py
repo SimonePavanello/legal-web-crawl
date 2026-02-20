@@ -24,88 +24,69 @@ DATA_DIR = PROJECT_ROOT / "output" / "rejected"
 
 def click_reject_button(webdriver):
     """
-    Funzione custom da eseguire nel browser per cliccare il pulsante reject.
+    Logica a tre fasi: Reject Diretto -> Settings -> Reject nel Sottomenu.
+    Ripristina il funzionamento di YouTube/Microsoft e sblocca mail.ru.
     """
-    try:
-        print("         [*] Ricerca pulsante reject...")
-        time.sleep(3)  # Aspetta che il banner appaia
-        
-        # Lista di selettori XPath per trovare pulsanti reject
-        selectors = [
+    
+    # --- 1. KEYWORDS POTENZIATE ---
+    reject_keys = [
+        'rifiuta', 'reject', 'declino', 'decline', 'solo necessari', 'only necessary',
+        'отклонить', 'только обязательные', 'non accetto', 'continua senza accettare',
+        'decline optional cookies', 'rifiuta cookie facoltativi'
+    ]
+    
+    settings_keys = [
+        'settings', 'personalizza', 'manage', 'opzioni', 'options', 
+        'impostazioni', 'настройки', 'показать все', 'параметры', 'подробнее'
+    ]
 
-                    # --- NOVITÀ: Ricerca testuale universale (molto più forte) ---
-            "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'declino')]",
-            "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'decline optional cookies')]",
-            "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'rifiuta cookie facoltativi')]",
-            
-            # --- SPECIFICO PER FACEBOOK ---
-            # Facebook usa spesso l'attributo aria-label per i bottoni dei cookie
-            "//div[@role='button'][@aria-label='Decline optional cookies']",
-            "//div[@role='button'][@aria-label='Rifiuta cookie facoltativi']",
-            "//button[@data-cookiebanner='accept_only_essential_button']", # ID interno di Meta
-            
-            # --- SPECIFICO PER AWS ---
-            # Il bottone di AWS spesso ha ID dinamici, ma possiamo puntare al testo nel link
-            "//a[contains(., 'Declino')]",
-            "//button[contains(., 'Declino')]",
-            # Testo in italiano/inglese (case-insensitive)
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'rifiuta')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reject')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'declino')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'decline')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'only necessary')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'solo necessari')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'Rifiuta cookies facoltativi')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'Decline optional cookies')]",
-            "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reject')]",
-            "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'rifiuta')]",
-            "//div[@role='button'][contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reject')]",
-            
-            # ID e classi comuni
-            "//*[@id='onetrust-reject-all-handler']",
-            "//*[contains(@class, 'reject-all')]",
-            "//*[contains(@class, 'decline-all')]",
-            "//*[@data-action='reject']",
-            "//*[@data-testid='reject-button']",
-            "//*[contains(@aria-label, 'Reject')]",
-            "//*[contains(@aria-label, 'Rifiuta')]",
-            "//*[contains(@aria-label, 'Continua senza accettare')]",
-        ]
-        
-        for selector in selectors:
+    def find_and_click(keywords):
+        """Sotto-funzione per cercare e cliccare basandosi su una lista di parole"""
+        # Cerchiamo in button, a, div[role=button] e anche span (spesso il testo è lì)
+        elements = webdriver.find_elements(By.XPATH, "//button | //a | //div[@role='button'] | //span")
+        for el in elements:
             try:
-                elements = webdriver.find_elements(By.XPATH, selector)
-                
-                for element in elements:
-                    try:
-                        # Verifica se l'elemento è visibile e cliccabile
-                        if element.is_displayed() and element.is_enabled():
-                            # Scroll verso l'elemento
-                            webdriver.execute_script("arguments[0].scrollIntoView(true);", element)
-                            time.sleep(0.3)
-                            
-                            # Prova click normale
-                            try:
-                                element.click()
-                                print(f"         [✓] Pulsante reject cliccato!")
-                                time.sleep(2)
-                                return
-                            except:
-                                # Fallback: click con JavaScript
-                                webdriver.execute_script("arguments[0].click();", element)
-                                print(f"         [✓] Pulsante reject cliccato (JS)!")
-                                time.sleep(2)
-                                return
-                    except:
-                        continue
+                if el.is_displayed():
+                    text = el.text.lower()
+                    if any(k in text for k in keywords):
+                        webdriver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
+                        time.sleep(0.5)
+                        try:
+                            el.click()
+                        except:
+                            webdriver.execute_script("arguments[0].click();", el)
+                        return True, text
             except:
                 continue
-        
-        print("         [!] Nessun pulsante reject trovato")
-        
-    except Exception as e:
-        print(f"         [!] Errore durante il click: {e}")
+        return False, ""
 
+    try:
+        print("         [*] Fase 1: Tentativo di Reject diretto...")
+        success, clicked_text = find_and_click(reject_keys)
+        
+        if success:
+            print(f"         [✓] Reject diretto riuscito: '{clicked_text}'")
+            return
+
+        print("         [*] Fase 2: Reject diretto fallito. Cerco Settings/Personalizza...")
+        success, clicked_text = find_and_click(settings_keys)
+        
+        if success:
+            print(f"         [+] Entrato in Settings tramite: '{clicked_text}'")
+            time.sleep(3) # Tempo extra per mail.ru e menu lenti
+            
+            print("         [*] Fase 3: Tentativo di Reject nel sottomenu...")
+            success_sub, clicked_text_sub = find_and_click(reject_keys)
+            if success_sub:
+                print(f"         [✓] Reject sottomenu riuscito: '{clicked_text_sub}'")
+                return
+            else:
+                print("         [!] Settings aperti, ma tasto Reject non trovato nel menu")
+        else:
+            print("         [!] Nessun tasto Reject o Settings trovato")
+
+    except Exception as e:
+        print(f"         [!] Errore durante la procedura: {e}")
 
 
 
