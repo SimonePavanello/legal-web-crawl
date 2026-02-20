@@ -25,64 +25,72 @@ DATA_DIR = PROJECT_ROOT / "output" / "accepted"
 
 def click_accept_button(webdriver):
     """
-    Funzione custom da eseguire nel browser per cliccare il pulsante di consenso (Accept).
+    Logica a tre fasi: Accept Diretto -> Settings -> Accept nel Sottomenu.
+    Ottimizzata per evitare click inutili su siti standard e sbloccare banner complessi.
     """
-    try:
-        print("         [*] Ricerca pulsante accetta...")
-        time.sleep(3)  # Aspetta che il banner appaia
-        
-        # Lista di selettori XPath aggiornati per trovare pulsanti di consenso
-        selectors = [
-            # Testo in italiano/inglese (case-insensitive)
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accept')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'acconsento')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'agree')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'ho capito')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'autorizzo')]",
-            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'ok')]",
-            "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta')]",
-            "//div[@role='button'][contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta')]",
-            
-            # ID e classi comuni per l'accettazione (spesso differiscono dal reject)
-            "//*[@id='onetrust-accept-btn-handler']",
-            "//*[contains(@class, 'accept-all')]",
-            "//*[contains(@class, 'consent-all')]",
-            "//*[@data-action='accept']",
-            "//*[@data-testid='accept-button']",
-            "//*[contains(@aria-label, 'Accept')]",
-            "//*[contains(@aria-label, 'Accetta')]",
-        ]
-        
-        for selector in selectors:
+    
+    # --- 1. KEYWORDS PER ACCETTAZIONE (IT, EN, RU) ---
+    accept_keys = [
+        'accetta', 'accept', 'acconsento', 'agree', 'autorizzo', 'ho capito', 'ok',
+        'allow all', 'accetta tutto', 'принять', 'согласен', 'разрешить', 'принять все'
+    ]
+    
+    # --- 2. KEYWORDS PER SETTINGS (se l'accetta tutto è nascosto) ---
+    settings_keys = [
+        'settings', 'personalizza', 'manage', 'opzioni', 'options', 
+        'impostazioni', 'настройки', 'показать все', 'параметры', 'подробнее'
+    ]
+
+    def find_and_click(keywords):
+        """Cerca e clicca basandosi su una lista di parole, includendo span e scroll centrato"""
+        # Cerchiamo in button, a, div[role=button] e span
+        elements = webdriver.find_elements(By.XPATH, "//button | //a | //div[@role='button'] | //span")
+        for el in elements:
             try:
-                elements = webdriver.find_elements(By.XPATH, selector)
-                
-                for element in elements:
-                    try:
-                        if element.is_displayed() and element.is_enabled():
-                            webdriver.execute_script("arguments[0].scrollIntoView(true);", element)
-                            time.sleep(0.3)
-                            
-                            try:
-                                element.click()
-                                print(f"         [✓] Pulsante accetta cliccato!")
-                                time.sleep(2)
-                                return
-                            except:
-                                webdriver.execute_script("arguments[0].click();", element)
-                                print(f"         [✓] Pulsante accetta cliccato (JS)!")
-                                time.sleep(2)
-                                return
-                    except:
-                        continue
+                if el.is_displayed():
+                    text = el.text.lower()
+                    if any(k in text for k in keywords):
+                        # Scroll centrato per assicurarci che l'elemento sia nel viewport
+                        webdriver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
+                        time.sleep(0.5)
+                        try:
+                            el.click()
+                        except:
+                            # Fallback con JavaScript se il click standard è bloccato da overlay
+                            webdriver.execute_script("arguments[0].click();", el)
+                        return True, text
             except:
                 continue
+        return False, ""
+
+    try:
+        print("         [*] Fase 1: Tentativo di Accept diretto...")
+        success, clicked_text = find_and_click(accept_keys)
         
-        print("         [!] Nessun pulsante accetta trovato")
+        if success:
+            print(f"         [✓] Accept diretto riuscito: '{clicked_text}'")
+            return
+
+        print("         [*] Fase 2: Accept diretto non trovato. Cerco Settings/Personalizza...")
+        success, clicked_text = find_and_click(settings_keys)
         
+        if success:
+            print(f"         [+] Entrato in Settings tramite: '{clicked_text}'")
+            time.sleep(3) # Attesa per il caricamento del sottomenu
+            
+            print("         [*] Fase 3: Tentativo di Accept nel sottomenu...")
+            success_sub, clicked_text_sub = find_and_click(accept_keys)
+            if success_sub:
+                print(f"         [✓] Accept sottomenu riuscito: '{clicked_text_sub}'")
+                return
+            else:
+                print("         [!] Settings aperti, ma tasto Accept non trovato all'interno")
+        else:
+            print("         [!] Nessun tasto Accept o Settings trovato")
+
     except Exception as e:
-        print(f"         [!] Errore durante il click: {e}")
+        print(f"         [!] Errore durante la procedura di Accept: {e}")
+
 
 def main():
     # 1. Setup Directory specifica per ACCEPTED
