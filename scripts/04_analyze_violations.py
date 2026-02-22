@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-"""
-GDPR Cookie Violation Analyzer
-Analizza i database OpenWPM per rilevare violazioni V1, V2, V3.
-
-Uso: python3 scripts/04_analyze_violations.py
-Dipendenze: pip install tldextract requests
-"""
-
 import sqlite3
 import json
 from datetime import datetime
@@ -15,9 +6,7 @@ from pathlib import Path
 import requests
 import tldextract
 
-# ---------------------------------------------------------------------------
-# Percorsi
-# ---------------------------------------------------------------------------
+
 SCRIPT_DIR   = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 
@@ -39,9 +28,7 @@ TRACKER_CATEGORIES = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Utilità
-# ---------------------------------------------------------------------------
+
 
 def load_sites_from_file() -> list[str]:
     sites = []
@@ -113,7 +100,6 @@ def load_tracker_list() -> dict[str, str]:
 def get_etld1(url_or_host: str) -> str:
     cleaned = url_or_host.lstrip(".")
     ext = tldextract.extract(cleaned)
-    # top_domain_under_public_suffix è il nome aggiornato di registered_domain
     return ext.top_domain_under_public_suffix or ext.registered_domain
 
 
@@ -133,9 +119,7 @@ def format_expiry(expiry, is_session: int) -> str:
     return "?"
 
 
-# ---------------------------------------------------------------------------
-# Analisi
-# ---------------------------------------------------------------------------
+
 
 SQL_COOKIES = """
 SELECT sv.site_url, jc.host, jc.name, jc.expiry, jc.is_session,
@@ -234,10 +218,6 @@ def analyze_v3(
         for site in sites
     }
 
-
-# ---------------------------------------------------------------------------
-# Report
-# ---------------------------------------------------------------------------
 
 def _site_label(url: str) -> str:
     return url.replace("https://", "").replace("http://", "").rstrip("/")
