@@ -2,7 +2,6 @@ import shutil
 import time
 from pathlib import Path
 
-# Importa dalla configurazione comune
 from config import (
     PROJECT_ROOT,
     load_sites_from_file,
@@ -28,7 +27,6 @@ def click_reject_button(webdriver):
     Ripristina il funzionamento di YouTube/Microsoft e sblocca mail.ru.
     """
     
-    # --- 1. KEYWORDS POTENZIATE ---
     reject_keys = [
         'rifiuta', 'reject', 'declino', 'decline', 'solo necessari', 'only necessary',
         'отклонить', 'только обязательные', 'non accetto', 'continua senza accettare',
@@ -41,8 +39,6 @@ def click_reject_button(webdriver):
     ]
 
     def find_and_click(keywords):
-        """Sotto-funzione per cercare e cliccare basandosi su una lista di parole"""
-        # Cerchiamo in button, a, div[role=button] e anche span (spesso il testo è lì)
         elements = webdriver.find_elements(By.XPATH, "//button | //a | //div[@role='button'] | //span")
         for el in elements:
             try:
@@ -73,7 +69,7 @@ def click_reject_button(webdriver):
         
         if success:
             print(f"         [+] Entrato in Settings tramite: '{clicked_text}'")
-            time.sleep(3) # Tempo extra per mail.ru e menu lenti
+            time.sleep(3)
             
             print("         [*] Fase 3: Tentativo di Reject nel sottomenu...")
             success_sub, clicked_text_sub = find_and_click(reject_keys)
@@ -91,27 +87,22 @@ def click_reject_button(webdriver):
 
 
 def main():
-    # 1. Setup Directory specifica per REJECT
     if DATA_DIR.exists():
         shutil.rmtree(DATA_DIR)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     
-    # Crea cartella screenshots
     screenshots_dir = DATA_DIR / "screenshots"
     screenshots_dir.mkdir(exist_ok=True)
     
     db_path = DATA_DIR / "rejected.sqlite"
     storage_provider = SQLiteStorageProvider(str(db_path))
     
-    # 2. Configurazione Manager
     manager_params = ManagerParams(num_browsers=1)
     manager_params.data_directory = DATA_DIR
     manager_params.log_path = DATA_DIR / "openwpm.log"
     
-    # 3. Configurazione Browser usando la funzione helper di config.py
     browser_params = get_browser_params(display_mode="headless", use_extension=True)
     
-    # Carica siti da file
     SITES = load_sites_from_file()
 
     print(f"\n{'='*60}")
@@ -129,16 +120,12 @@ def main():
             try:
                 command_sequence = CommandSequence(url, reset=True, blocking=True)
                 
-                # 1. Naviga al sito e aspetta che carichi
                 command_sequence.append_command(GetCommand(url=url, sleep=10), timeout=120)
                 
-                # 2. Esegui la funzione custom per cliccare reject
                 command_sequence.append_command(CustomFunctionCommand(click_reject_button), timeout=60)
                 
-                # 3. Aspetta un po' dopo il click per raccogliere traffico
                 command_sequence.append_command(CustomFunctionCommand(heartbeat_wait),timeout=120)
                 
-                # 4. Screenshot manuale
                 screenshot_path = get_screenshot_path(url, "reject", screenshots_dir)
                 command_sequence.append_command(CustomFunctionCommand(save_manual_screenshot, screenshot_path))
      

@@ -181,14 +181,10 @@ def get_screenshot_path(url, phase_name, directory):
     """
     Compone un path pulito: output/{fase}/screenshots/{fase}_{dominio}.png
     """
-    # 1. Estrae il dominio e rimuove caratteri non sicuri
-    # Esempio: https://aws.amazon.com/it/ -> aws_amazon_com
     clean_name = re.sub(r'https?://', '', url)
     clean_name = re.sub(r'[^\w\s-]', '_', clean_name).strip('_')
-    clean_name = clean_name.split('_it')[0] # Opzionale: accorcia i path localizzati
+    clean_name = clean_name.split('_it')[0] 
     
-    # 2. Crea il nome file: es. "rejected_aws_amazon_com.png"
     filename = f"{phase_name}_{clean_name}.png"
     
-    # 3. Restituisce il path completo
     return Path(directory) / filename

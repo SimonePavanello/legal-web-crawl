@@ -53,11 +53,9 @@ def _parse_disconnect(data: dict) -> dict[str, str]:
     for cat_name, company_list in data.get("categories", {}).items():
         if cat_name not in TRACKER_CATEGORIES:
             continue
-        # Normalizza il nome categoria per il report
         display_cat = cat_name.replace("FingerprintingInvasive", "Fingerprinting") \
                               .replace("FingerprintingGeneral", "Fingerprinting")
         for company_entry in company_list:
-            # company_entry è un dict con una sola chiave (nome azienda)
             for _company_name, homepage_dict in company_entry.items():
                 for _homepage, domain_list in homepage_dict.items():
                     for domain in domain_list:
@@ -69,7 +67,6 @@ def _parse_disconnect(data: dict) -> dict[str, str]:
 
 def load_tracker_list() -> dict[str, str]:
     """Scarica e/o legge dalla cache la lista tracker Disconnect.me."""
-    # Usa la cache se fresca (< 7 giorni)
     if DISCONNECT_CACHE.exists():
         age = datetime.now().timestamp() - DISCONNECT_CACHE.stat().st_mtime
         if age < 7 * 86400:
@@ -78,7 +75,6 @@ def load_tracker_list() -> dict[str, str]:
             print(f"      [cache] {len(result)} domini tracker caricati.")
             return result
 
-    # Scarica
     try:
         resp = requests.get(DISCONNECT_URL, timeout=20)
         resp.raise_for_status()
@@ -153,7 +149,6 @@ def analyze_v1_cookies(db_path: Path, sites: list[str]) -> dict[str, list[dict]]
             continue
         key = (host.lstrip("."), name)
         if key in seen[site_url]:
-            # Aggiorna l'ultimo valore (espiry più recente)
             results[site_url] = [
                 c if (c["host"].lstrip("."), c["name"]) != key
                 else {"host": host, "name": name,
@@ -195,7 +190,6 @@ def analyze_v2_requests(
             results[site_url].append((req_etld1, tracker_map[req_etld1]))
     conn.close()
 
-    # Ordina per categoria poi dominio
     for site in results:
         results[site].sort(key=lambda x: (x[1], x[0]))
     return results
@@ -335,7 +329,7 @@ def generate_report(
 
     lines += ["---", ""]
 
-    # Note metodologiche
+    
     lines += [
         "## Note Metodologiche",
         "",
@@ -351,11 +345,6 @@ def generate_report(
     ]
 
     return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 def _print_summary(
     v1: dict, v2: dict, v3: dict, sites: list[str]
